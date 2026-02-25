@@ -34,3 +34,14 @@ func start
 ```bash
 dotnet build
 ```
+
+## Auto deploy với GitHub Actions
+
+Workflow đã được thêm tại `.github/workflows/deploy-azure-function.yml`.
+
+Để deploy tự động lên Azure Functions, thêm 2 GitHub Secrets trong repo:
+
+- `AZURE_FUNCTIONAPP_NAME`: tên Azure Function App.
+- `AZURE_FUNCTIONAPP_PUBLISH_PROFILE`: nội dung publish profile tải từ Azure Portal.
+
+Sau đó push lên nhánh `main` hoặc chạy thủ công từ tab **Actions**.
