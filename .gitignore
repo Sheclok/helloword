@@ -1,0 +1,34 @@
+# Build artifacts
+bin/
+obj/
+out/
+
+# User-specific files
+*.user
+*.rsuser
+*.suo
+*.userprefs
+
+# IDE folders
+.vs/
+.vscode/
+.idea/
+
+# Visual Studio / Rider caches
+_ReSharper*/
+*.DotSettings.user
+
+# Logs
+*.log
+
+# NuGet
+*.nupkg
+*.snupkg
+packages/
+
+# Azure Functions local config
+local.settings.json
+
+# OS files
+.DS_Store
+Thumbs.db
