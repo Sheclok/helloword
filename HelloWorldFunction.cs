@@ -12,11 +12,11 @@ public class HelloWorldFunction
     {
         var query = System.Web.HttpUtility.ParseQueryString(req.Url.Query);
         var name = query["name"];
-        
+
         var response = req.CreateResponse(HttpStatusCode.OK);
         await response.WriteAsJsonAsync(new
         {
-            message = "Hello World",
+            message = $"Hello, {string.IsNullOrWhiteSpace(name) ? "World" : name}!",
             framework = ".NET 8 Azure Function"
         });
 
