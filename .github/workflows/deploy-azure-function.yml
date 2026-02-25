@@ -1,0 +1,64 @@
+name: Build and deploy .NET 8 Azure Function
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  DOTNET_VERSION: '8.0.x'
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Build project
+        run: dotnet build --configuration Release
+
+      - name: Publish project
+        run: dotnet publish --configuration Release --output ./publish
+
+      - name: Validate deploy secrets
+        run: |
+          if [ -n "${{ secrets.AZURE_CREDENTIALS }}" ]; then
+            echo "Deploy mode: Azure Login (recommended)"
+          elif [ -n "${{ secrets.AZURE_FUNCTIONAPP_PUBLISH_PROFILE }}" ]; then
+            echo "Deploy mode: Publish Profile"
+          else
+            echo "Missing deploy secret. Set AZURE_CREDENTIALS (recommended) or AZURE_FUNCTIONAPP_PUBLISH_PROFILE."
+            exit 1
+          fi
+
+      - name: Azure login (recommended)
+        if: ${{ secrets.AZURE_CREDENTIALS != '' }}
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Deploy to Azure Functions (Azure Login)
+        if: ${{ secrets.AZURE_CREDENTIALS != '' }}
+        uses: Azure/functions-action@v1
+        with:
+          app-name: ${{ secrets.AZURE_FUNCTIONAPP_NAME }}
+          package: ./publish
+
+      - name: Deploy to Azure Functions (Publish Profile fallback)
+        if: ${{ secrets.AZURE_CREDENTIALS == '' && secrets.AZURE_FUNCTIONAPP_PUBLISH_PROFILE != '' }}
+        uses: Azure/functions-action@v1
+        with:
+          app-name: ${{ secrets.AZURE_FUNCTIONAPP_NAME }}
+          package: ./publish
+          publish-profile: ${{ secrets.AZURE_FUNCTIONAPP_PUBLISH_PROFILE }}
