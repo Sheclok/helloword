@@ -37,52 +37,55 @@ dotnet build
 
 ## Auto deploy với GitHub Actions
 
-Workflow đã được thêm tại `.github/workflows/deploy-azure-function.yml`.
+Workflow: `.github/workflows/deploy-azure-function.yml`
 
-Workflow deploy đang nhận cấu hình trực tiếp từ 2 secrets sau:
+Workflow hỗ trợ 2 chế độ deploy:
+1. **Khuyên dùng**: `AZURE_CREDENTIALS` (Azure Login / RBAC)
+2. Fallback: `AZURE_FUNCTIONAPP_PUBLISH_PROFILE`
 
-- `AZURE_FUNCTIONAPP_NAME`
-- `AZURE_FUNCTIONAPP_PUBLISH_PROFILE`
+> Nếu cùng lúc có cả 2 secrets, workflow ưu tiên `AZURE_CREDENTIALS` để tránh lỗi Kudu 401.
 
-Để deploy tự động lên Azure Functions, thêm 2 GitHub Secrets trong repo:
+Secrets cần có:
+- `AZURE_FUNCTIONAPP_NAME`: tên Function App.
+- `AZURE_CREDENTIALS` (khuyên dùng) **hoặc** `AZURE_FUNCTIONAPP_PUBLISH_PROFILE`.
 
-- `AZURE_FUNCTIONAPP_NAME`: tên Azure Function App.
-- `AZURE_FUNCTIONAPP_PUBLISH_PROFILE`: nội dung publish profile tải từ Azure Portal.
+## Cách lấy secrets
 
-Sau đó push lên nhánh `main` hoặc chạy thủ công từ tab **Actions**.
+### 1) `AZURE_FUNCTIONAPP_NAME`
 
-### Cách lấy `AZURE_FUNCTIONAPP_NAME`
-
-#### Cách 1: Azure Portal
+**Azure Portal**
 1. Vào [portal.azure.com](https://portal.azure.com).
-2. Mở resource **Function App** của bạn.
-3. Copy giá trị **Function App name** ở trang Overview.
-4. Vào GitHub repo → **Settings** → **Secrets and variables** → **Actions** → **New repository secret**.
-5. Tạo secret:
-   - Name: `AZURE_FUNCTIONAPP_NAME`
-   - Value: `<Function App name>`
+2. Mở resource Function App.
+3. Copy `Function App name` ở trang Overview.
 
-#### Cách 2: Azure CLI
-
+**Azure CLI**
 ```bash
 az functionapp list --resource-group <resource-group> --query "[].name" -o tsv
 ```
 
-Lấy đúng tên app rồi lưu vào secret `AZURE_FUNCTIONAPP_NAME` trên GitHub.
+### 2) `AZURE_CREDENTIALS` (khuyên dùng)
 
-### Cách lấy `AZURE_FUNCTIONAPP_PUBLISH_PROFILE`
+Tạo Service Principal chỉ scope vào đúng Function App:
 
-#### Cách 1: Azure Portal
-1. Mở Function App trong Azure Portal.
-2. Vào **Overview** (hoặc **Get publish profile**).
-3. Chọn **Get publish profile** để tải file `.PublishSettings`.
-4. Mở file đó, copy toàn bộ nội dung XML.
-5. Tạo GitHub secret:
-   - Name: `AZURE_FUNCTIONAPP_PUBLISH_PROFILE`
-   - Value: toàn bộ XML từ file publish profile.
+```bash
+az ad sp create-for-rbac \
+  --name "github-actions-functionapp" \
+  --role contributor \
+  --scopes /subscriptions/<subscription-id>/resourceGroups/<resource-group>/providers/Microsoft.Web/sites/<function-app-name> \
+  --sdk-auth
+```
 
-#### Cách 2: Azure CLI
+Copy toàn bộ JSON output vào GitHub secret `AZURE_CREDENTIALS`.
 
+### 3) `AZURE_FUNCTIONAPP_PUBLISH_PROFILE` (fallback)
+
+**Azure Portal**
+1. Mở Function App.
+2. Chọn **Get publish profile**.
+3. Tải file `.PublishSettings`, mở file và copy toàn bộ XML.
+4. Lưu XML vào secret `AZURE_FUNCTIONAPP_PUBLISH_PROFILE`.
+
+**Azure CLI**
 ```bash
 az functionapp deployment list-publishing-profiles \
   --name <function-app-name> \
@@ -90,9 +93,23 @@ az functionapp deployment list-publishing-profiles \
   --xml
 ```
 
-Copy output XML và lưu vào secret `AZURE_FUNCTIONAPP_PUBLISH_PROFILE`.
+## Troubleshooting lỗi `Unauthorized (CODE: 401)`
 
-### Lưu ý bảo mật
+Nếu workflow báo:
 
-- Không commit publish profile vào source code.
-- Nếu nghi ngờ lộ profile, vào Azure Portal và **reset publishing credentials**.
+- `Failed to fetch Kudu App Settings. Unauthorized (CODE: 401)`
+
+Thường do publish profile:
+- đã cũ/không còn hiệu lực,
+- copy XML không đầy đủ,
+- hoặc SCM publishing/basic auth bị tắt.
+
+Cách xử lý:
+1. Chuyển sang `AZURE_CREDENTIALS` (khuyên dùng).
+2. Nếu vẫn dùng publish profile, tải lại profile mới và cập nhật secret.
+3. Kiểm tra SCM publishing/basic auth trong cấu hình Function App.
+
+## Lưu ý bảo mật
+
+- Không commit publish profile hoặc credentials vào source code.
+- Nếu nghi ngờ lộ thông tin, rotate credentials ngay trong Azure Portal.
