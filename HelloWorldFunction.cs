@@ -16,7 +16,7 @@ public class HelloWorldFunction
         var response = req.CreateResponse(HttpStatusCode.OK);
         await response.WriteAsJsonAsync(new
         {
-            message = $"Hello, {string.IsNullOrWhiteSpace(name) ? "World" : name}!",
+            message = $"Hello",
             framework = ".NET 8 Azure Function"
         });
 
